@@ -1,0 +1,86 @@
+<template>
+  <div :class="['connection-status', `status-${status}`]">
+    <span class="status-dot"></span>
+    <span class="status-text">{{ statusText }}</span>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import type { ConnectionStatus } from '@/stores/connection'
+
+interface Props {
+  status: ConnectionStatus
+}
+
+const props = defineProps<Props>()
+
+const statusText = computed(() => {
+  switch (props.status) {
+    case 'connected':
+      return 'Connected'
+    case 'connecting':
+      return 'Connecting...'
+    case 'reconnecting':
+      return 'Reconnecting...'
+    case 'disconnected':
+      return 'Disconnected'
+    default:
+      return 'Unknown'
+  }
+})
+</script>
+
+<style scoped>
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+.status-connected {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-connected .status-dot {
+  background: #10b981;
+}
+
+.status-connecting,
+.status-reconnecting {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-connecting .status-dot,
+.status-reconnecting .status-dot {
+  background: #f59e0b;
+}
+
+.status-disconnected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.status-disconnected .status-dot {
+  background: #ef4444;
+  animation: none;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+</style>
