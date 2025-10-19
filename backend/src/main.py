@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .config import get_settings
-from .api import auth_router, sessions_router, websocket_router
+from .middleware import RateLimitMiddleware
+from .api import auth_router, sessions_router, websocket_router, files_router
 
 settings = get_settings()
 
@@ -12,6 +13,10 @@ app = FastAPI(
     debug=settings.DEBUG
 )
 
+# Add rate limiting middleware (T121-T122)
+app.add_middleware(RateLimitMiddleware, requests_per_minute=10)
+
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS.split(","),
@@ -22,6 +27,7 @@ app.add_middleware(
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(sessions_router, prefix="/api/v1")
+app.include_router(files_router, prefix="/api/v1")
 app.include_router(websocket_router)
 
 @app.get("/health")
