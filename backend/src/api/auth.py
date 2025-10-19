@@ -47,3 +47,8 @@ async def refresh(request: RefreshRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
     return AuthService.create_tokens(str(user.id))
+
+@router.post("/logout", status_code=status.HTTP_200_OK)
+async def logout():
+    """Logout endpoint - client should discard tokens after calling this"""
+    return {"detail": "Logout successful. Please discard your tokens."}

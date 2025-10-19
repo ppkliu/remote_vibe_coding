@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +8,7 @@ from ..schemas.auth import TokenResponse
 from ..config import get_settings
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 class AuthService:
     @staticmethod
@@ -43,10 +45,17 @@ class AuthService:
     async def authenticate_user(db: AsyncSession, username: str, password: str) -> User | None:
         result = await db.execute(select(User).filter(User.username == username, User.is_active == True))
         user = result.scalar_one_or_none()
-        if not user or not user.verify_password(password):
+        if not user:
+            # T124: Security logging for failed auth attempts
+            logger.warning(f"Failed login attempt: user not found - username={username}")
+            return None
+        if not user.verify_password(password):
+            # T124: Security logging for failed auth attempts
+            logger.warning(f"Failed login attempt: invalid password - username={username}, user_id={user.id}")
             return None
         user.last_login = datetime.utcnow()
         await db.commit()
+        logger.info(f"Successful login - username={username}, user_id={user.id}")
         return user
 
     @staticmethod
