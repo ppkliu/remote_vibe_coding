@@ -22,35 +22,64 @@
       </div>
 
       <div v-else class="chat-container">
-        <OutputDisplay :messages="messagesStore.messages" />
+        <OutputDisplay
+          :messages="messagesStore.messages"
+          :isStreaming="messagesStore.isStreaming"
+          @open-file="handleOpenFile"
+        />
         <CommandInput
           :disabled="connectionStore.status !== 'connected'"
           @submit="handleCommandSubmit"
         />
       </div>
     </main>
+
+    <!-- Tool Approval Dialog -->
+    <ToolApprovalDialog
+      v-if="wsComposable"
+      :show="!!wsComposable.toolApprovalRequest.value"
+      :tool-name="wsComposable.toolApprovalRequest.value?.toolName || ''"
+      :action="wsComposable.toolApprovalRequest.value?.action || ''"
+      :prompt="wsComposable.toolApprovalRequest.value?.prompt || ''"
+      @approve="handleApprove"
+      @reject="handleReject"
+    />
+
+    <!-- File Viewer -->
+    <FileViewer
+      :show="showFileViewer"
+      :file-path="selectedFilePath"
+      @close="showFileViewer = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, watch } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useSessionStore } from '@/stores/session'
 import { useMessagesStore } from '@/stores/messages'
 import { useConnectionStore } from '@/stores/connection'
+import { useToastStore } from '@/stores/toast'
 import { useWebSocket } from '@/composables/useWebSocket'
+import { useSession } from '@/composables/useSession'
 import CommandInput from '@/components/CommandInput.vue'
 import OutputDisplay from '@/components/OutputDisplay.vue'
 import ConnectionStatus from '@/components/ConnectionStatus.vue'
+import ToolApprovalDialog from '@/components/ToolApprovalDialog.vue'
+import FileViewer from '@/components/FileViewer.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const sessionStore = useSessionStore()
 const messagesStore = useMessagesStore()
 const connectionStore = useConnectionStore()
+const toastStore = useToastStore()
 
 let wsComposable: ReturnType<typeof useWebSocket> | null = null
+const showFileViewer = ref(false)
+const selectedFilePath = ref('')
 
 async function handleCreateSession() {
   try {
@@ -62,10 +91,11 @@ async function handleCreateSession() {
     if (authStore.accessToken && session.id) {
       wsComposable = useWebSocket(session.id, authStore.accessToken)
       await wsComposable.connect()
+      toastStore.success('Session created and connected!')
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to create session:', error)
-    alert('Failed to create session')
+    toastStore.error(error?.message || 'Failed to create session')
   }
 }
 
@@ -73,6 +103,23 @@ function handleCommandSubmit(command: string) {
   if (wsComposable) {
     wsComposable.sendCommand(command)
   }
+}
+
+function handleApprove() {
+  if (wsComposable) {
+    wsComposable.sendToolApproval(true)
+  }
+}
+
+function handleReject() {
+  if (wsComposable) {
+    wsComposable.sendToolApproval(false)
+  }
+}
+
+function handleOpenFile(filePath: string) {
+  selectedFilePath.value = filePath
+  showFileViewer.value = true
 }
 
 function handleLogout() {
@@ -86,6 +133,29 @@ function handleLogout() {
 onMounted(async () => {
   // Fetch existing sessions
   await sessionStore.fetchSessions()
+
+  // Restore saved session if available (T098)
+  const sessionComposable = useSession()
+  if (sessionStore.savedSessionId) {
+    try {
+      const savedSessionId = sessionStore.savedSessionId
+      await sessionStore.setActiveSession(savedSessionId)
+
+      // Fetch message history for restored session (T099)
+      await messagesStore.fetchHistory(savedSessionId)
+
+      // Reconnect WebSocket to restored session
+      if (authStore.accessToken) {
+        wsComposable = useWebSocket(savedSessionId, authStore.accessToken)
+        await wsComposable.connect()
+        toastStore.info('Session restored')
+      }
+    } catch (error: any) {
+      console.error('Failed to restore session:', error)
+      sessionStore.savedSessionId = ''
+      localStorage.removeItem('activeSessionId')
+    }
+  }
 })
 </script>
 
