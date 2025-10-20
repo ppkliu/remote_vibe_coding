@@ -49,7 +49,7 @@
 - [X] T014 Create Message SQLAlchemy model in backend/src/models/message.py with JSONB metadata
 - [X] T015 Create ClaudeProcess SQLAlchemy model in backend/src/models/claude_process.py
 - [X] T016 Generate Alembic migration for initial schema (users, sessions, messages, claude_processes)
-- [ ] T017 Apply database migration with alembic upgrade head
+- [X] T017 Apply database migration with alembic upgrade head
 
 ### Authentication Foundation
 
@@ -187,11 +187,11 @@
 
 ### Backend Implementation for User Story 3
 
-- [ ] T090 [US3] Implement session state preservation during disconnections in backend/src/services/session_manager.py
-- [ ] T091 [US3] Add session cleanup job for sessions idle >24 hours
-- [ ] T092 [US3] Implement WebSocket ping/pong heartbeat (30-second interval)
-- [ ] T093 [US3] Store WebSocket connection ID in Session model
-- [ ] T094 [US3] Implement GET /api/v1/sessions/{id}/messages for history retrieval
+- [X] T090 [US3] Implement session state preservation during disconnections in backend/src/services/session_manager.py
+- [X] T091 [US3] Add session cleanup job for sessions idle >24 hours
+- [X] T092 [US3] Implement WebSocket ping/pong heartbeat (30-second interval)
+- [X] T093 [US3] Store WebSocket connection ID in Session model
+- [X] T094 [US3] Implement GET /api/v1/sessions/{id}/messages for history retrieval
 
 ### Frontend Implementation for User Story 3
 
@@ -221,16 +221,16 @@
 
 ### Backend Implementation for User Story 4
 
-- [ ] T105 [US4] Implement tool approval request parsing from Claude stdout in backend/src/services/claude_bridge.py
-- [ ] T106 [US4] Send tool_approval_request WebSocket message to client
-- [ ] T107 [US4] Handle tool_approval response from client in WebSocket handler
-- [ ] T108 [US4] Forward approval decision to Claude process stdin
-- [ ] T109 [US4] Create GET /api/v1/files endpoint for file content retrieval (with path validation)
+- [X] T105 [US4] Implement tool approval request parsing from Claude stdout in backend/src/services/claude_bridge.py
+- [X] T106 [US4] Send tool_approval_request WebSocket message to client
+- [X] T107 [US4] Handle tool_approval response from client in WebSocket handler
+- [X] T108 [US4] Forward approval decision to Claude process stdin
+- [X] T109 [US4] Create GET /api/v1/files endpoint for file content retrieval (with path validation)
 
 ### Frontend Implementation for User Story 4
 
-- [ ] T110 [P] [US4] Create ToolApprovalDialog.vue component in frontend/src/components/ToolApprovalDialog.vue
-- [ ] T111 [P] [US4] Create FileViewer.vue component in frontend/src/components/FileViewer.vue
+- [X] T110 [P] [US4] Create ToolApprovalDialog.vue component in frontend/src/components/ToolApprovalDialog.vue
+- [X] T111 [P] [US4] Create FileViewer.vue component in frontend/src/components/FileViewer.vue
 - [ ] T112 [US4] Update useWebSocket to handle tool_approval_request messages
 - [ ] T113 [US4] Show ToolApprovalDialog when tool approval requested
 - [ ] T114 [US4] Send tool_approval response via WebSocket

@@ -42,9 +42,11 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useToastStore } from '@/stores/toast'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const toastStore = useToastStore()
 
 const username = ref('')
 const email = ref('')
@@ -53,10 +55,10 @@ const password = ref('')
 async function handleRegister() {
   try {
     await authStore.register({ username: username.value, email: email.value, password: password.value })
-    alert('Registration successful! Please login.')
+    toastStore.success('Registration successful! Please login.', 4000)
     router.push('/login')
-  } catch (error) {
-    alert('Registration failed')
+  } catch (error: any) {
+    toastStore.error(error?.response?.data?.detail || 'Registration failed. Please try again.')
   }
 }
 </script>

@@ -39,9 +39,11 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useToastStore } from '@/stores/toast'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const toastStore = useToastStore()
 
 const username = ref('')
 const password = ref('')
@@ -49,9 +51,10 @@ const password = ref('')
 async function handleLogin() {
   try {
     await authStore.login({ username: username.value, password: password.value })
+    toastStore.success('Login successful!')
     router.push('/')
-  } catch (error) {
-    alert('Login failed')
+  } catch (error: any) {
+    toastStore.error(error?.response?.data?.detail || 'Login failed. Please check your credentials.')
   }
 }
 </script>

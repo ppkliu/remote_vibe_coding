@@ -2,12 +2,21 @@ import { ref, onUnmounted } from 'vue'
 import { WebSocketClient } from '@/services/websocket'
 import { useConnectionStore } from '@/stores/connection'
 import { useMessagesStore } from '@/stores/messages'
+import { useToastStore } from '@/stores/toast'
 import { MessageRole, MessageContentType } from '@/types/message'
+
+interface ToolApprovalRequest {
+  toolName: string
+  action: string
+  prompt: string
+}
 
 export function useWebSocket(sessionId: string, token: string) {
   const connectionStore = useConnectionStore()
   const messagesStore = useMessagesStore()
+  const toastStore = useToastStore()
   const client = ref<WebSocketClient | null>(null)
+  const toolApprovalRequest = ref<ToolApprovalRequest | null>(null)
 
   async function connect() {
     try {
@@ -25,6 +34,7 @@ export function useWebSocket(sessionId: string, token: string) {
     } catch (error: any) {
       connectionStore.setStatus('disconnected')
       connectionStore.setLastError(error.message)
+      toastStore.error(`Connection failed: ${error.message}`)
       throw error
     }
   }
@@ -33,6 +43,13 @@ export function useWebSocket(sessionId: string, token: string) {
     const { type, content, message_id } = message
 
     switch (type) {
+      case 'ping':
+        // Respond to server heartbeat
+        if (client.value) {
+          client.value.send({ type: 'pong' })
+        }
+        break
+
       case 'system':
         console.log('[System]', content)
         break
@@ -51,8 +68,19 @@ export function useWebSocket(sessionId: string, token: string) {
         messagesStore.currentMessageId = null
         break
 
+      case 'tool_approval_request':
+        // Store approval request for UI to display
+        toolApprovalRequest.value = {
+          toolName: message.tool_name,
+          action: message.action,
+          prompt: message.prompt
+        }
+        messagesStore.setStreaming(false)
+        break
+
       case 'error':
         console.error('[Error]', content)
+        toastStore.error(content || 'An error occurred')
         messagesStore.setStreaming(false)
         break
 
@@ -93,6 +121,16 @@ export function useWebSocket(sessionId: string, token: string) {
     }
   }
 
+  function sendToolApproval(approved: boolean) {
+    if (client.value && client.value.isConnected()) {
+      client.value.send({
+        type: 'tool_approval',
+        approved
+      })
+      toolApprovalRequest.value = null
+    }
+  }
+
   function disconnect() {
     if (client.value) {
       client.value.disconnect()
@@ -108,6 +146,8 @@ export function useWebSocket(sessionId: string, token: string) {
     connect,
     sendCommand,
     disconnect,
+    sendToolApproval,
+    toolApprovalRequest,
     isConnected: () => client.value?.isConnected() ?? false
   }
 }

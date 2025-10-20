@@ -1,6 +1,7 @@
 import asyncio
 import os
-from typing import Optional
+import re
+from typing import Optional, Dict, Any
 from ..config import get_settings
 
 settings = get_settings()
@@ -9,6 +10,9 @@ class ClaudeBridgeService:
     def __init__(self):
         self.process: Optional[asyncio.subprocess.Process] = None
         self.claude_path = settings.CLAUDE_CODE_PATH or "claude"
+        # Pattern to detect tool approval prompts
+        self.tool_approval_pattern = re.compile(r'(Allow|Approve|Continue with|Execute) (.+?)\?', re.IGNORECASE)
+        self.pending_approval = False
 
     async def start_process(self, working_directory: str = ".") -> int:
         """Start Claude Code process and return PID"""
@@ -49,6 +53,34 @@ class ClaudeBridgeService:
         if not self.process:
             return False
         return self.process.returncode is None
+
+    def parse_tool_approval_request(self, output: str) -> Dict[str, Any] | None:
+        """Parse tool approval request from Claude output
+
+        Detects patterns like:
+        - "Allow tool X?"
+        - "Approve command Y?"
+        - "Continue with operation Z?"
+        """
+        match = self.tool_approval_pattern.search(output)
+        if match:
+            self.pending_approval = True
+            return {
+                "action": match.group(1),
+                "tool_name": match.group(2).strip(),
+                "prompt": output.strip()
+            }
+        return None
+
+    async def send_approval_response(self, approved: bool) -> None:
+        """Send tool approval response to Claude Code stdin"""
+        if not self.process or not self.process.stdin:
+            raise RuntimeError("Process not started")
+
+        response = "yes\n" if approved else "no\n"
+        self.process.stdin.write(response.encode())
+        await self.process.stdin.drain()
+        self.pending_approval = False
 
     async def stop_process(self) -> None:
         """Stop Claude Code process gracefully"""
