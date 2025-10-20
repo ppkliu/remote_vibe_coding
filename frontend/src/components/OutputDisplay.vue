@@ -23,8 +23,8 @@
             📋 Copy
           </button>
         </div>
-        <div class="message-content">
-          <pre v-if="message.content">{{ message.content }}</pre>
+        <div class="message-content" @click="handleContentClick">
+          <pre v-if="message.content" v-html="renderContentWithLinks(message.content)"></pre>
           <div v-else class="streaming-dots">
             <span class="streaming-indicator">●</span>
             <span class="streaming-indicator">●</span>
@@ -54,10 +54,17 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const emit = defineEmits<{
+  'open-file': [path: string]
+}>()
+
 const toastStore = useToastStore()
 const outputContainer = ref<HTMLElement | null>(null)
 const userScrolledUp = ref(false)
 const scrollThreshold = 100 // pixels from bottom
+
+// File path regex - matches absolute and relative paths
+const filePathRegex = /(?:^|\s|>)(\/[a-zA-Z0-9\-_./]+\.?[a-zA-Z0-9]*|[a-zA-Z0-9\-_./]+\/[a-zA-Z0-9\-_.\/]+)(?:\s|$|:)/gm
 
 function formatRole(role: MessageRole): string {
   return role === MessageRole.USER ? 'You' : role === MessageRole.ASSISTANT ? 'Claude' : 'System'
@@ -65,6 +72,29 @@ function formatRole(role: MessageRole): string {
 
 function formatTime(timestamp: string): string {
   return new Date(timestamp).toLocaleTimeString()
+}
+
+function renderContentWithLinks(content: string): string {
+  // Replace file paths with clickable links
+  return content.replace(filePathRegex, (match) => {
+    const path = match.trim().replace(/[:.,'"\)]$/, '')
+    const prefix = match[0] === '/' || match[0] === ' ' ? (match[0] === ' ' ? ' ' : '') : ''
+    return `${prefix}<a class="file-link" data-path="${path}">${path}</a>`
+  })
+}
+
+function handleFileClick(path: string) {
+  emit('open-file', path)
+}
+
+function handleContentClick(event: MouseEvent) {
+  const target = event.target as HTMLElement
+  if (target.classList.contains('file-link')) {
+    const path = target.getAttribute('data-path')
+    if (path) {
+      handleFileClick(path)
+    }
+  }
 }
 
 function handleScroll() {
@@ -236,5 +266,29 @@ async function copyToClipboard(text: string) {
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
+}
+
+/* File link styling */
+.message-content :deep(.file-link) {
+  color: #3b82f6;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 2px solid transparent;
+}
+
+.message-content :deep(.file-link):hover {
+  color: #2563eb;
+  background-color: #dbeafe;
+  padding: 0.125rem 0.25rem;
+  border-radius: 2px;
+}
+
+.message-content :deep(.file-link):active {
+  color: #1d4ed8;
+}
+
+.message-content {
+  cursor: default;
 }
 </style>
