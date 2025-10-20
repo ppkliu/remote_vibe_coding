@@ -26,7 +26,7 @@ class Message(Base):
     role: Mapped[MessageRole] = mapped_column(SQLEnum(MessageRole), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     content_type: Mapped[MessageContentType] = mapped_column(SQLEnum(MessageContentType), nullable=False, default=MessageContentType.TEXT)
-    metadata: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    message_metadata: Mapped[dict | None] = mapped_column("metadata", JSONB, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     sequence_number: Mapped[int] = mapped_column(Integer, nullable=False)
     is_streamed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

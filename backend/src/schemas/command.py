@@ -16,7 +16,7 @@ class MessageResponse(BaseModel):
     role: MessageRole
     content: str
     content_type: MessageContentType
-    metadata: dict | None
+    message_metadata: dict | None = None
     timestamp: datetime
     sequence_number: int
     is_streamed: bool

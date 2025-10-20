@@ -1,15 +1,18 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 import uuid
+import asyncio
 from ..models.session import Session, SessionStatus
+from ..models.message import Message
 from ..models.claude_process import ClaudeProcess, ProcessStatus
 from .claude_bridge import ClaudeBridgeService
 
 class SessionManager:
     def __init__(self):
         self.active_bridges: dict[uuid.UUID, ClaudeBridgeService] = {}
+        self.cleanup_task: Optional[asyncio.Task] = None
 
     async def create_session(
         self,
@@ -78,6 +81,109 @@ class SessionManager:
             .values(status=SessionStatus.ENDED, ended_at=datetime.utcnow())
         )
         await db.commit()
+
+    async def handle_disconnection(self, db: AsyncSession, session_id: uuid.UUID, connection_id: str) -> None:
+        """Handle WebSocket disconnection - preserve session state"""
+        # Only mark as DISCONNECTED if the connection ID matches (latest connection)
+        result = await db.execute(
+            select(Session).filter(Session.id == session_id)
+        )
+        session = result.scalar_one_or_none()
+
+        if session and session.connection_id == connection_id:
+            # Connection still matches, so update status to DISCONNECTED
+            # Claude process continues running - user can reconnect
+            await db.execute(
+                update(Session)
+                .where(Session.id == session_id)
+                .values(status=SessionStatus.DISCONNECTED, connection_id=None)
+            )
+            await db.commit()
+
+    async def handle_reconnection(self, db: AsyncSession, session_id: uuid.UUID, new_connection_id: str) -> None:
+        """Handle WebSocket reconnection to existing session"""
+        result = await db.execute(
+            select(Session).filter(Session.id == session_id)
+        )
+        session = result.scalar_one_or_none()
+
+        if not session:
+            raise ValueError("Session not found")
+
+        if session.status == SessionStatus.DISCONNECTED:
+            # Restore the session to ACTIVE with new connection
+            await db.execute(
+                update(Session)
+                .where(Session.id == session_id)
+                .values(status=SessionStatus.ACTIVE, connection_id=new_connection_id, last_activity=datetime.utcnow())
+            )
+            await db.commit()
+        elif session.status == SessionStatus.ACTIVE:
+            # Just update the connection ID
+            await db.execute(
+                update(Session)
+                .where(Session.id == session_id)
+                .values(connection_id=new_connection_id, last_activity=datetime.utcnow())
+            )
+            await db.commit()
+
+    async def get_session_history(self, db: AsyncSession, session_id: uuid.UUID) -> list[Message]:
+        """Retrieve message history for a session"""
+        result = await db.execute(
+            select(Message)
+            .filter(Message.session_id == session_id)
+            .order_by(Message.sequence_number.asc())
+        )
+        return result.scalars().all()
+
+    async def start_cleanup_job(self, db_maker) -> None:
+        """Start periodic cleanup job for idle sessions (24 hours)"""
+        if self.cleanup_task and not self.cleanup_task.done():
+            return  # Already running
+
+        async def cleanup_loop():
+            while True:
+                try:
+                    await asyncio.sleep(3600)  # Run every hour
+                    from sqlalchemy import and_
+
+                    async with db_maker() as db:
+                        idle_threshold = datetime.utcnow() - timedelta(hours=24)
+
+                        # Find idle sessions
+                        result = await db.execute(
+                            select(Session).filter(
+                                and_(
+                                    Session.last_activity < idle_threshold,
+                                    Session.status != SessionStatus.ENDED
+                                )
+                            )
+                        )
+                        idle_sessions = result.scalars().all()
+
+                        for session in idle_sessions:
+                            # Stop the bridge if it's still active
+                            bridge = self.active_bridges.pop(session.id, None)
+                            if bridge:
+                                try:
+                                    await bridge.stop_process()
+                                except:
+                                    pass
+
+                            # Mark session as ENDED
+                            await db.execute(
+                                update(Session)
+                                .where(Session.id == session.id)
+                                .values(status=SessionStatus.ENDED, ended_at=datetime.utcnow())
+                            )
+
+                        await db.commit()
+                except Exception as e:
+                    # Log but don't crash the cleanup loop
+                    print(f"Error in cleanup loop: {e}")
+                    await asyncio.sleep(60)  # Retry after 1 minute
+
+        self.cleanup_task = asyncio.create_task(cleanup_loop())
 
 # Global session manager instance
 session_manager = SessionManager()
