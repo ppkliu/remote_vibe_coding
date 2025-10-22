@@ -13,10 +13,11 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta
-from ...src.main import app
-from ...src.services.auth_service import AuthService
-from ...src.models.user import User
 import uuid
+
+from src.main import app
+from src.services.auth_service import AuthService
+from src.models.user import User
 
 
 @pytest.fixture

@@ -11,9 +11,10 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from ...src.models.user import User
-from ...src.models.session import Session
 import uuid
+
+from src.models.user import User
+from src.models.session import Session
 
 
 @pytest.fixture
