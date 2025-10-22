@@ -10,13 +10,21 @@ import os
 from pathlib import Path
 
 
-def setup_logging(log_dir: str = "logs", log_file: str = "app.log") -> logging.Logger:
+def setup_logging(
+    log_dir: str = "logs",
+    log_file: str = "app.log",
+    sqlalchemy_log_level: str = "WARNING"
+) -> logging.Logger:
     """
     Setup logging with rotating file handler
 
     Args:
-        log_dir: Directory to store log files
-        log_file: Name of the log file
+        log_dir: Directory to store log files (default: "logs")
+        log_file: Name of the log file (default: "app.log")
+        sqlalchemy_log_level: SQLAlchemy logging level (default: "WARNING")
+            - "WARNING": Suppress SQL queries (cleaner output)
+            - "INFO": Show all SQL SELECT/INSERT/UPDATE/DELETE
+            - "DEBUG": Show SQL with parameters
 
     Returns:
         Configured logger instance
@@ -60,10 +68,11 @@ def setup_logging(log_dir: str = "logs", log_file: str = "app.log") -> logging.L
     logger.addHandler(console_handler)
 
     # ⚠️ IMPORTANT: Suppress verbose third-party library logs
-    # Set SQLAlchemy logger to WARNING level to hide SQL queries
-    logging.getLogger('sqlalchemy').setLevel(logging.WARNING)
-    logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
-    logging.getLogger('sqlalchemy.pool').setLevel(logging.WARNING)
+    # Set SQLAlchemy logger to configured level (default: WARNING to hide SQL queries)
+    sqlalchemy_level = getattr(logging, sqlalchemy_log_level.upper(), logging.WARNING)
+    logging.getLogger('sqlalchemy').setLevel(sqlalchemy_level)
+    logging.getLogger('sqlalchemy.engine').setLevel(sqlalchemy_level)
+    logging.getLogger('sqlalchemy.pool').setLevel(sqlalchemy_level)
 
     # Suppress other verbose loggers
     logging.getLogger('uvicorn').setLevel(logging.INFO)

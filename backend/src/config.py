@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
     LOG_DIR: str = "logs"  # Directory for application logs
     LOG_LEVEL: str = "INFO"  # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    SQLALCHEMY_LOG_LEVEL: str = "WARNING"  # SQLAlchemy SQL query logging (WARNING=quiet, INFO=verbose)
 
     class Config:
         env_file = ".env"
