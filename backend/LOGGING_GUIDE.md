@@ -4,6 +4,67 @@
 
 ---
 
+## 🔓 临时启用 SQLAlchemy SQL 日志
+
+如果你需要调试数据库问题，可以临时启用 SQL 查询日志：
+
+### 方法 1：修改代码（临时）
+
+编辑 `backend/src/main.py` 的启动部分：
+
+```python
+# 在 setup_logging() 后添加
+import logging
+logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+```
+
+### 方法 2：通过环境变量（更方便）
+
+在 `backend/.env` 中添加：
+
+```bash
+SQLALCHEMY_LOG_LEVEL=INFO
+```
+
+然后在 `logging_config.py` 中使用：
+
+```python
+from ..config import get_settings
+settings = get_settings()
+
+sqlalchemy_level = getattr(logging, settings.SQLALCHEMY_LOG_LEVEL, logging.WARNING)
+logging.getLogger('sqlalchemy.engine').setLevel(sqlalchemy_level)
+```
+
+### 方法 3：命令行（一次性）
+
+```bash
+# 直接在启动时设置
+PYTHONPATH=. python3 -c "
+import logging
+logging.basicConfig()
+logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+" && uvicorn src.main:app --reload
+```
+
+### 启用后看到的日志
+
+```
+INFO sqlalchemy.engine.Engine SELECT users.id, users.username, users.email
+FROM users
+WHERE users.id = $1::UUID
+[generated in 0.00123s] (UUID('xxx'),)
+```
+
+### 何时需要启用 SQL 日志
+
+- ❌ **一般开发** - 不需要，太吵
+- ✅ **数据库问题** - 需要查看 SQL 查询
+- ✅ **性能优化** - 需要看慢查询
+- ✅ **数据不一致** - 需要查看实际执行的 SQL
+
+---
+
 ## 📝 日志系统配置
 
 ### 日志文件位置
@@ -55,6 +116,17 @@ LOG_LEVEL=INFO
 ```
 
 格式: `时间 - 模块 - 级别 - [文件:行号] - 消息`
+
+### 默认行为：SQLAlchemy 日志被抑制
+
+**重要：** SQLAlchemy 的 SQL 查询日志默认被设置为 WARNING 级别。
+
+这意味着：
+- ✅ **控制台输出很干净** - 只显示应用级日志
+- ✅ **文件日志完整** - `logs/app.log` 中有所有日志
+- ❌ **默认不显示 SQL 查询** - SELECT/INSERT/UPDATE 不显示在控制台
+
+**原因：** 大多数情况下，SQL 查询太多，会淹没重要的应用日志
 
 ---
 
