@@ -59,6 +59,16 @@ def setup_logging(log_dir: str = "logs", log_file: str = "app.log") -> logging.L
     logger.addHandler(rotating_handler)
     logger.addHandler(console_handler)
 
+    # ⚠️ IMPORTANT: Suppress verbose third-party library logs
+    # Set SQLAlchemy logger to WARNING level to hide SQL queries
+    logging.getLogger('sqlalchemy').setLevel(logging.WARNING)
+    logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
+    logging.getLogger('sqlalchemy.pool').setLevel(logging.WARNING)
+
+    # Suppress other verbose loggers
+    logging.getLogger('uvicorn').setLevel(logging.INFO)
+    logging.getLogger('uvicorn.access').setLevel(logging.WARNING)
+
     return logger
 
 
