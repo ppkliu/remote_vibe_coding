@@ -6,6 +6,10 @@ from sqlalchemy import pool
 from alembic import context
 import sys
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
 
 # Add the parent directory to the path so we can import our models
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..')))
@@ -66,8 +70,19 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    # Try to get DATABASE_URL from environment, fallback to alembic.ini
+    database_url = os.getenv("DATABASE_URL")
+
+    if database_url:
+        # Use environment variable (convert asyncpg to psycopg2 for Alembic)
+        database_url = database_url.replace("asyncpg", "psycopg2")
+        configuration = {"sqlalchemy.url": database_url}
+    else:
+        # Fallback to alembic.ini configuration
+        configuration = config.get_section(config.config_ini_section, {})
+
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

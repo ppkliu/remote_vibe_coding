@@ -13,10 +13,7 @@ app = FastAPI(
     debug=settings.DEBUG
 )
 
-# Add rate limiting middleware (T121-T122)
-app.add_middleware(RateLimitMiddleware, requests_per_minute=10)
-
-# Add CORS middleware
+# Add CORS middleware first (handles preflight requests before rate limiting)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS.split(","),
@@ -24,6 +21,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add rate limiting middleware (T121-T122)
+app.add_middleware(RateLimitMiddleware, requests_per_minute=10)
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(sessions_router, prefix="/api/v1")

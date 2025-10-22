@@ -18,6 +18,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.window_size = 60  # seconds
 
     async def dispatch(self, request: Request, call_next) -> Response:
+        # Skip rate limiting for OPTIONS requests (CORS preflight)
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         # Skip rate limiting for non-command endpoints
         if request.url.path in ["/health", "/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/refresh", "/api/v1/auth/logout"]:
             return await call_next(request)
