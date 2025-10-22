@@ -25,4 +25,8 @@ class User(Base):
 
     @staticmethod
     def hash_password(password: str) -> str:
+        # bcrypt has a 72-byte limit for passwords
+        # Truncate if necessary to prevent ValueError
+        if len(password.encode('utf-8')) > 72:
+            password = password[:72]
         return pwd_context.hash(password)
