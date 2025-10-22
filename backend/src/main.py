@@ -3,8 +3,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import get_settings
 from .middleware import RateLimitMiddleware
 from .api import auth_router, sessions_router, websocket_router, files_router
+from .logging_config import setup_logging
 
 settings = get_settings()
+
+# Initialize logging system with rotating file handler (3MB x 3 files)
+logger = setup_logging(log_dir=settings.LOG_DIR, log_file="app.log")
+logger.info("=" * 80)
+logger.info("🚀 Claude Code Remote Web Controller - Starting")
+logger.info("=" * 80)
+logger.info(f"Server: {settings.HOST}:{settings.PORT}")
+logger.info(f"Debug mode: {settings.DEBUG}")
+logger.info(f"Claude Code: {settings.CLAUDE_CODE_PATH}")
+logger.info(f"Working Directory: {settings.CLAUDE_WORKING_DIRECTORY}")
+logger.info(f"Log Directory: {settings.LOG_DIR}")
+logger.info("=" * 80)
 
 app = FastAPI(
     title="Claude Code Remote Controller API",

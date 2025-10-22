@@ -8,6 +8,11 @@ from ..models.session import Session, SessionStatus
 from ..models.message import Message
 from ..models.claude_process import ClaudeProcess, ProcessStatus
 from .claude_bridge import ClaudeBridgeService
+from ..config import get_settings
+from ..logging_config import get_logger
+
+settings = get_settings()
+logger = get_logger(__name__)
 
 class SessionManager:
     def __init__(self):
@@ -34,22 +39,32 @@ class SessionManager:
 
     async def start_claude_process(self, db: AsyncSession, session_id: uuid.UUID) -> ClaudeProcess:
         """Start Claude Code process for a session"""
+        logger.info(f"Starting Claude process for session: {session_id}")
+
         result = await db.execute(select(Session).filter(Session.id == session_id))
         session = result.scalar_one_or_none()
         if not session:
+            logger.error(f"❌ Session not found: {session_id}")
             raise ValueError("Session not found")
 
         bridge = ClaudeBridgeService()
         self.active_bridges[session_id] = bridge
 
+        # Use configured working directory, fallback to session parameter
+        working_dir = settings.CLAUDE_WORKING_DIRECTORY
+        logger.info(f"Using working directory: {working_dir}")
+
         try:
-            pid = await bridge.start_process()
+            logger.debug(f"Calling bridge.start_process() for session {session_id}")
+            pid = await bridge.start_process(working_directory=working_dir)
+
+            logger.info(f"✅ Claude process started - Session: {session_id}, PID: {pid}")
 
             claude_process = ClaudeProcess(
                 session_id=session_id,
                 process_id=pid,
                 status=ProcessStatus.RUNNING,
-                working_directory="."
+                working_directory=working_dir
             )
             db.add(claude_process)
 
@@ -59,8 +74,12 @@ class SessionManager:
 
             await db.commit()
             await db.refresh(claude_process)
+
+            logger.info(f"✅ Session activated: {session_id}")
             return claude_process
+
         except Exception as e:
+            logger.error(f"❌ Failed to start Claude process for session {session_id}: {str(e)}", exc_info=True)
             session.status = SessionStatus.ENDED
             await db.commit()
             raise e
