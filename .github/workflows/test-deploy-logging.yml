@@ -1,0 +1,72 @@
+# CI/CD Pipeline: WebSocket/Claude Logging Feature
+
+name: Test & Deploy Logging Feature
+
+on:
+  push:
+    branches: [002-claude-code, main]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  test-logging:
+    name: Test Logging Feature
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: claude_remote
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports: [5432:5432]
+    
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install uv
+          uv pip install -e ".[dev]"
+          pip install pytest pytest-asyncio pytest-cov
+      
+      - name: Run logging tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://admin:password@localhost:5432/claude_remote
+        run: |
+          cd backend
+          PYTHONPATH=. python -m pytest \
+            tests/unit/test_logging_level_toggle.py \
+            tests/unit/test_sqlalchemy_echo.py \
+            tests/integration/test_console_output.py \
+            tests/integration/test_websocket_lifecycle.py \
+            -v --tb=short --cov=src --cov-report=xml
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./backend/coverage.xml
+          flags: logging-feature
+
+  notify:
+    name: Notify Completion
+    needs: [test-logging]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Test status
+        run: echo "Tests completed with status: ${{ needs.test-logging.result }}"
